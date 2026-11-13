@@ -11,7 +11,7 @@ for how a feature arrives here in the first place.
 
 | Doc | Feature | Status |
 |---|---|---|
-| _(none yet)_ | | |
+| [`initial-scaffold.md`](initial-scaffold.md) | Gradle module + layer skeleton (services, controllers, views, decoder) | In progress — code compiles offline; full `gradle build`, real audio playback, and final icon set still unverified |
 
 ## Planned modules
 
