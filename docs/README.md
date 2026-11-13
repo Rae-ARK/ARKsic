@@ -6,15 +6,26 @@ than browsing files directly.
 
 | Section | Purpose |
 |---|---|
-| [`proposal/`](proposal/README.md) | What ARKsic is, who it's for, and what it will (and won't) do |
-| [`foundation/`](foundation/README.md) | The architectural and technical decisions the project is built on |
-| [`implementation/`](implementation/README.md) | How those decisions are realized in code, module by module |
+| [`proposal/`](proposal/README.md) | Current scope, and proposals for changing it |
+| [`foundation/`](foundation/README.md) | Settled architecture and design decisions |
+| [`implementation/`](implementation/README.md) | Features currently being built |
 
 ## Reading order
 
-1. **Proposal** — read first for context on scope and goals.
-2. **Foundation** — read to understand *why* the project is structured the way it is.
-3. **Implementation** — read when you need to know *how* a specific piece works, or before contributing code.
+1. **[Proposal](proposal/README.md)** — scope and goals, including anything
+   proposed but not yet built.
+2. **[Foundation](foundation/README.md)** — *why* the project is structured
+   the way it is ([`design-notes.md`](foundation/design-notes.md)) and
+   *what* that structure is ([`architecture.md`](foundation/architecture.md)).
+3. **[Implementation](implementation/README.md)** — *how* a specific
+   in-flight piece works, read before contributing code to it.
+
+## How a change flows through these three
+
+```
+proposal/<name>.md  →  implementation/<name>.md  →  foundation/architecture.md
+   (argue for it)         (build it)                  (settled, docs updated)
+```
 
 ## Conventions
 
