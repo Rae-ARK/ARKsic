@@ -6,8 +6,10 @@ Kind: foundational · Verified: 2026-11-13 · Truth lives in: code structure, `a
 > (11+)". That's incompatible with design-notes.md's own rule 4 ("a
 > `record` over a hand-rolled immutable bean") — records need Java 16+,
 > and the controller/model layer uses `switch` expressions too (14+). The
-> row now says Java 17 (LTS), the lowest LTS release that supports both.
-> Found and fixed while scaffolding the initial module skeleton; see
+> row said Java 17 (LTS), the lowest LTS release that supports both, until
+> the pinned Gradle toolchain was changed to match the JDK actually
+> available in development (21) — so it now says Java 21 (LTS). Found and
+> fixed while scaffolding the initial module skeleton; see
 > [`docs/implementation/initial-scaffold.md`](../implementation/initial-scaffold.md).
 
 The *what*. The *why* behind these choices is in [`design-notes.md`](design-notes.md).
@@ -20,7 +22,7 @@ at which point this doc is updated and the implementation doc is retired.
 
 | Layer | Choice |
 |---|---|
-| Language / runtime | Java 17 (LTS), no OS-native dependencies |
+| Language / runtime | Java 21 (LTS), no OS-native dependencies |
 | UI toolkit | Swing |
 | WAV decoding | `javax.sound.sampled` (built in — no dependency) |
 | MP3 decoding | JLayer, fronted by an `mp3spi` `javax.sound` SPI provider |

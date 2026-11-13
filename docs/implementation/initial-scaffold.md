@@ -12,7 +12,7 @@ yet — this is the shape everything else lands into.
 ## What's here
 
 - `settings.gradle.kts`, `build.gradle.kts`, `app/build.gradle.kts` — a
-  single-module Gradle build, Java 17 toolchain (see the correction in
+  single-module Gradle build, Java 21 toolchain (see the corrections in
   `architecture.md` below), `application` plugin wired to `arksic.App`.
 - `arksic.model` — `Track`, `Preferences` (records), `PlaybackState`,
   `RepeatMode` (enums).
@@ -44,18 +44,28 @@ yet — this is the shape everything else lands into.
 - `app/src/test/java` — JUnit 5 tests for `PlaybackMath` and
   `PlaylistService`.
 
-## Correction folded into `architecture.md`
+## Corrections folded into `architecture.md`
 
 The Stack table said "Java (11+)". `design-notes.md`'s own code-philosophy
 rule ("a `record` over a hand-rolled immutable bean") needs Java 16+; the
 `switch` expressions used in `PlaybackMath`, `AudioFormatType`, and
 `TransportController` need 14+. Writing the actual code surfaced the
-contradiction, so `architecture.md` and `proposal/README.md` now say
-**Java 17 (LTS)** instead — picked over 16 or 21 because it's the nearest
-LTS that clears both bars. If this project wants to target true Java 11
-instead, that decision should happen explicitly (drop records/switch
-expressions, or revisit rule 4), not as a side effect of whichever came
-first.
+contradiction, so `architecture.md` and `proposal/README.md` first moved
+to **Java 17 (LTS)** — the nearest LTS that clears both bars. If this
+project wants to target true Java 11 instead, that decision should happen
+explicitly (drop records/switch expressions, or revisit rule 4), not as a
+side effect of whichever came first.
+
+That pinned the Gradle toolchain (`JavaLanguageVersion.of(17)`) to an
+exact major version, which only resolves without a toolchain provisioner
+if 17 itself is installed — it won't fall back to a newer JDK already on
+the machine. Since local development has JDK 21 installed, the toolchain
+was changed to `of(21)` to match what's actually there, and the docs now
+say **Java 21 (LTS)** throughout. The same caveat about this being a
+documentation decision, not just a build-file tweak, applies again: if
+broader compatibility with older JDKs matters more than matching the dev
+machine, that should be a deliberate call, not a one-off fix for whoever
+happens to run the build next.
 
 ## Icon assets — provenance note
 
@@ -88,7 +98,7 @@ to Maven Central, so:
   `net.jthink:jaudiotagger`, the JUnit BOM, or the MP3/FLAC SPI runtime
   jars.
 - Everything else compiles cleanly offline against the JDK alone
-  (`javac --release 17`, substituting a trivial stub for
+  (`javac --release 21`, substituting a trivial stub for
   `MetadataService`'s signature).
 - The pure-logic functions in `PlaybackMath` and the playlist
   advance/shuffle/remove/reorder behavior in `PlaylistService` were

@@ -25,7 +25,7 @@ so changing it starts here, not by quietly adding a decoder.
   - Streaming from remote services.
   - Audio editing, transcoding, or effects beyond basic volume.
   - Mobile or web ports — Swing/desktop only.
-* **Target platform** — Any OS with a JVM (17+); no OS-specific native
+* **Target platform** — Any OS with a JVM (21+); no OS-specific native
   dependencies planned.
 
 ## Open proposals
