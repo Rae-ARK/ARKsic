@@ -48,7 +48,8 @@ public final class Musikr {
 
     /**
      * @param roots folders to scan recursively
-     * @param progress called with the running count of files extracted (from worker threads)
+     * @param progress called with the running count of files extracted, strictly increasing, from
+     *     worker threads (calls are serialised, so the callback need not be thread-safe)
      */
     public static Result run(
             List<Path> roots, Interpretation interpretation, StoredPlaylists playlists, IntConsumer progress)
@@ -63,6 +64,9 @@ public final class Musikr {
             return t;
         });
         AtomicInteger done = new AtomicInteger();
+        // Count and report under one lock so the callback sees 1, 2, 3... in order. Incrementing
+        // and calling separately lets two workers report out of order (a progress bar going backwards).
+        Object progressLock = new Object();
         List<Future<RawSong>> futures = new ArrayList<>();
         try {
             for (Path p : files) {
@@ -70,7 +74,11 @@ public final class Musikr {
                     try {
                         return TagReader.read(p);
                     } finally {
-                        if (progress != null) progress.accept(done.incrementAndGet());
+                        if (progress != null) {
+                            synchronized (progressLock) {
+                                progress.accept(done.incrementAndGet());
+                            }
+                        }
                     }
                 }));
             }

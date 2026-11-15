@@ -36,7 +36,7 @@ added:
 
 | Proposal | Status |
 |---|---|
-| _(none yet)_ | |
+| [`auxio-port.md`](auxio-port.md) | Proposed (retroactive): port Auxio's library and playback logic; implementation under way |
 
 ## Lifecycle of a proposal
 

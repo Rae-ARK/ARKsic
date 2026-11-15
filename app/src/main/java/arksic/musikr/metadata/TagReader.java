@@ -49,9 +49,12 @@ public final class TagReader {
     // Strips non-numeric noise like " dB" from ReplayGain values. Derived from vanilla music.
     private static final Pattern RG_FILTER = Pattern.compile("(?:[^\\d.-]+)");
 
+    // jaudiotagger is very chatty via java.util.logging. LogManager only holds loggers weakly, so
+    // this reference must stay: without it the OFF level can vanish after a garbage collection.
+    private static final Logger JAUDIOTAGGER_LOG = Logger.getLogger("org.jaudiotagger");
+
     static {
-        // jaudiotagger is very chatty on stderr/stdout via java.util.logging.
-        Logger.getLogger("org.jaudiotagger").setLevel(Level.OFF);
+        JAUDIOTAGGER_LOG.setLevel(Level.OFF);
     }
 
     private TagReader() {}
@@ -102,8 +105,8 @@ public final class TagReader {
         if (b.musicBrainzId == null) b.musicBrainzId = first(tag, FieldKey.MUSICBRAINZ_TRACK_ID);
         b.name = first(tag, FieldKey.TITLE);
         b.sortName = first(tag, FieldKey.TITLE_SORT);
-        b.track = position(first(tag, FieldKey.TRACK));
-        b.disc = position(first(tag, FieldKey.DISC_NO));
+        b.track = position(first(tag, FieldKey.TRACK), first(tag, FieldKey.TRACK_TOTAL));
+        b.disc = position(first(tag, FieldKey.DISC_NO), first(tag, FieldKey.DISC_TOTAL));
         b.subtitle = first(tag, FieldKey.DISC_SUBTITLE);
         b.date = date(tag);
 
@@ -167,6 +170,16 @@ public final class TagReader {
             if (!v.isEmpty()) return v;
         }
         return List.of();
+    }
+
+    /**
+     * Combine a position with its separate total field (ID3 via jaudiotagger splits "3/12" into a
+     * number and a total; Vorbis may hand back "3/12" whole). Auxio treats a position of 0 as valid
+     * only when a positive total accompanies it, so the total has to reach {@link #position(String)}.
+     */
+    static Integer position(String number, String total) {
+        if (number != null && total != null && !number.contains("/")) return position(number + "/" + total);
+        return position(number);
     }
 
     /** "3/12" or "3" => 3; zero only counts if a positive total was given. */

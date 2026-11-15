@@ -17,14 +17,15 @@ iterated on later.
 
 | Piece | State |
 |---|---|
-| Logic port (`arksic.musikr`, `arksic.list`, `arksic.playback`, `arksic.audio`) | Written and committed (`7042730`). Main sources compile with `javac -Xlint:all`. |
-| JUnit 5 tests (~60) | Written. **Never run; never compiled against real JUnit.** |
-| `app/build.gradle.kts` | No change needed: `net.jthink:jaudiotagger:3.0.1` was already a dependency (an earlier note here said otherwise; that was wrong). |
-| CI | `.github/workflows/ci.yml` runs `gradle build` (compile + JUnit) on push/PR. First run is the first time the tests execute anywhere. |
+| Logic port (`arksic.musikr`, `arksic.list`, `arksic.playback`, `arksic.audio`) | Written and committed (`7042730`). Compiles; exercised by 234 tests. |
+| JUnit 5 tests | 234 in total. The first 85 ran green in CI. The ~150 added in Stage 0/1 have run **locally only** (through a small JUnit-compatible shim, since Maven Central was unreachable); their first CI run is the next push. |
+| `app/build.gradle.kts` | `net.jthink:jaudiotagger:3.0.1` was already a dependency. Stage 0/1 adds per-test result logging so CI output shows what ran. |
+| CI | `.github/workflows/ci.yml` runs `gradle build` on push/PR. Reported green on the first run. |
+| Proposal | `docs/proposal/auxio-port.md` written (retroactively); awaiting a decision. |
 | Wiring into `App`/`Main` | **Not started.** Old `model`/`service`/`view` code still in place and untouched. |
 | Swing UI | **Not started.** |
-| Real audio playback, seek, ReplayGain | **Unverified** (no audio device in the dev sandbox; CI has none either, so this stays a manual desktop check). |
-| `gradle build` | **Unverified** locally (Gradle and Maven Central unreachable from the sandbox); CI is the first real run. |
+| Real audio output, seek, ReplayGain by ear | **Unverified.** `SpiAudioEngine` has no tests (no audio device in the sandbox or on CI); the playback core is tested against a fake engine only. |
+| Gradle wrapper | **Missing** (README references `./gradlew`; it isn't in the repo). |
 
 ## Interpretation of "the Android 12L part of the Compose"
 
@@ -72,47 +73,105 @@ changes; Stages 0–2 do not.
 Each stage is independently committable and ends with its exit criteria met.
 Don't start a stage before the previous one's criteria hold.
 
-### Stage 0 — Make what exists trustworthy
+### Stage 0 — Make what exists trustworthy  *(done, pending a CI run of the new tests)*
 
 - [x] jaudiotagger is already declared in `app/build.gradle.kts`; nothing to add.
-- [ ] Get the first green CI run (`.github/workflows/ci.yml`). Until then the
-      tests have never executed. Fix whatever it reports.
+- [x] First green CI run (`.github/workflows/ci.yml`): reported
+      `BUILD SUCCESSFUL`, compile and test tasks executed.
 - [ ] Add a Gradle wrapper (`gradle wrapper`, commit `gradlew`, `gradlew.bat`,
-      `gradle/wrapper/`). The README references `./gradlew`, but it isn't in the
-      repo; CI currently installs Gradle itself to work around that.
-- [ ] Run the existing test suite on a machine with Gradle; fix compile and
-      assertion failures. Known soft spot:
-      `LibraryGraphTest.albumArtistsTakePriorityForAlbumsButNotForSongs` has a
-      sloppy assertion that needs rewriting.
-- [ ] Add a `TagReader` integration test: generate tagged WAV/FLAC/MP3 fixtures
-      in a temp dir, scan with `Musikr.run`, assert the library. Covers
-      jaudiotagger behaviour that the synthetic-tag tests can't (multi-value
-      artists, ID3 `TXXX` ReplayGain, `TRCK` "3/12", embedded art detection).
-- [ ] Write `docs/proposal/auxio-port.md` (see process note) and link it from
-      `proposal/README.md`.
+      `gradle/wrapper/`). Needs a machine that can run Gradle; CI installs
+      Gradle itself in the meantime.
+- [x] Fix the sloppy assertion in `LibraryGraphTest`
+      (`albumArtistsTakePriorityForAlbumsButNotForSongs` now checks each
+      song's own artist and the explicit/implicit album sets).
+- [x] `TagReader` integration tests against real files:
+      `metadata/AudioFixtures` builds valid WAV (javax.sound), MP3 (a run of
+      silent MPEG-1 Layer III frames) and FLAC (STREAMINFO + padding)
+      without any encoder; `TagReaderTest` covers core tags in all three
+      formats, multi-value artists, sort names, MusicBrainz IDs, ReplayGain
+      (including several `TXXX` frames), compilation/composer fallbacks,
+      whitespace, Unicode, untagged and corrupt files, and cover detection
+      (embedded vs folder image). `MusikrIntegrationTest` scans a real
+      directory tree: nesting, non-audio files ignored, unreadable files
+      reported, progress count, stable UIDs across rescans, playlists
+      surviving a rescan, retagging picked up.
+- [x] `docs/proposal/auxio-port.md`, linked from `proposal/README.md`.
 
-**Exit:** `gradle test` green; fixtures round-trip through `Musikr`.
+**Findings from Stage 0** (all fixed unless noted):
 
-### Stage 1 — Test the playback core against a fake engine
+- `TagReader` ignored the separate track/disc *total* fields, so a track of
+  `0` with a known total (valid in Auxio's parser) was read as "no track".
+  Now combined before parsing.
+- `TagReader` silenced jaudiotagger's logging with a logger it did not keep a
+  reference to; `LogManager` holds loggers weakly, so the setting could revert
+  after a GC. A static reference now pins it.
+- `Musikr.run` counted a file and then reported the count in two separate steps,
+  so two worker threads could report out of order (a progress bar stepping
+  backwards). Counting and reporting now happen under one lock, and the
+  callback is documented as serialised and strictly increasing. The
+  regression test uses a deliberately slow callback: it fails on the old code
+  every time and passes on the new code.
+- Test-fixture lessons worth remembering: jaudiotagger returns a bare track
+  number and silently drops `"3/12"` set via `FieldKey.TRACK`; several ID3
+  `TXXX` frames must be written as one list or each replaces the last (the
+  reader already handles the list form); artist MusicBrainz IDs are dropped
+  when there is no artist name (the composer fallback does this on purpose).
+- Limits of the fixtures: the FLAC fixture has no audio frames (bitrate reads
+  as 0 and it cannot be decoded), so nothing here tests decoding. The
+  compile/run environment used jaudiotagger built from a GitHub fork;
+  differences from `net.jthink:3.0.1` would show up on the next CI run.
 
-- [ ] `FakeAudioEngine` (records loads, lets a test fire `onEnded`/`onError`).
-- [ ] Tests for `QueuePlaybackStateHolder` + `PlaybackStateManager`:
-      new playback (shuffled and not, with/without a start song); `next`/`prev`
-      incl. wrap-around, rewind-with-prev threshold, `rememberPause`;
-      `goTo`; play-next / add-to-queue in both orderings; `move` and `remove`
-      in both orderings incl. removing the current and the last song; shuffle
-      toggle keeps the current song; repeat NONE/ALL/TRACK at end of track,
-      `pauseOnRepeat`; `onError` skips.
-- [ ] Saved-state round trip via `PlaybackPersistence` incl. songs deleted from
-      the library between save and restore (`applySavedState` re-pointing).
-- [ ] Concurrency smoke test: hammer manager calls while firing `onEnded`
-      from another thread; assert no deadlock and a consistent queue.
+**Exit:** met locally; confirm on the next CI run.
 
-**Exit:** every public queue operation has at least one passing test in each
-mode; no known inconsistency between `RawQueue`, the mirror, and the holder.
+### Stage 1 — Test the playback core against a fake engine  *(done, pending a CI run)*
+
+- [x] `FakeAudioEngine` (records loads and seeks, lets a test fire
+      `onEnded`/`onError`) and `PlaybackFixture` (a wired stack over a
+      synthetic library). `PlaybackAssert.consistent` checks, after every
+      operation, that the manager's mirror, the holder's real queue and the
+      engine all agree.
+- [x] `PlaybackStartTest`, `PlaybackNavigationTest`, `PlaybackQueueEditTest`:
+      new playback (shuffled and not, with/without a start song, command
+      factory rules); `next`/`prev` incl. wrap-around, rewind threshold,
+      `rememberPause`; `goTo`; end-of-track for NONE/ALL/TRACK and
+      `pauseOnRepeat`; `onError` skips; seek, pause, progression clamping;
+      play-next / add-to-queue; every (current, from, to) move and 300
+      random moves; remove before/after/at the current song and at the end,
+      removing everything; shuffle toggling. Queue edits are checked in both
+      modes against a plain list model.
+- [x] `PlaybackPersistenceTest`: file round trip, corrupt/missing files,
+      restore into a fresh player (shuffled and not), songs deleted from the
+      library between save and restore (including every position of a shuffled
+      queue), current song deleted, restore-vs-already-playing rule, playlist
+      parents.
+- [x] `PlaybackConcurrencyTest`: two UI-style threads issuing arbitrary
+      commands, two audio-style threads firing end/error events, and an
+      observer asserting the invariants under the manager's lock; plus a
+      400-callback test that every audio-thread event is applied exactly once.
+- [x] `ReplayGainTest`: every mode, pre-amps, Auxio's quirk that mode OFF
+      still applies the "without" pre-amp (pinned as a characterisation),
+      sample scaling and clamping, and the holder wiring it into the engine.
+
+**Findings from Stage 1.** The tests found no defects in the holder or
+manager. To check the suite is not just agreeing with the code, 13 deliberate
+mutations (forgetting an index shift, inserting before instead of after the
+current song, not re-pointing a restored shuffle mapping, an off-by-one in the
+shuffle move, ...) were applied one at a time: **all 13 were caught**. The
+earlier lock-order hazard was also re-introduced on purpose (holder with its
+own monitor, engine callbacks bypassing the manager lock): the concurrency
+test failed with the engine holding a different song than the queue said.
+
+Not covered, by design: `SpiAudioEngine` itself (position tracking, pause,
+seek, end detection) because it opens a real `SourceDataLine`. See Stage 2.
+
+**Exit:** met locally; every public queue operation is tested in each mode.
 
 ### Stage 2 — Integrate and retire the old layers
 
+- [ ] Make `SpiAudioEngine` testable: extract the `SourceDataLine` behind a small
+      sink interface so position tracking, pause, seek and end detection can be
+      tested with a fake sink and a generated WAV, headless. Today it is the
+      one untested layer of the playback path.
 - [ ] An `AppContext` composition root: `MusicRepository`, `StoredPlaylists`
       (path under the user config dir), `PlaybackPersistence`, `ListSettings`,
       `PlaybackSettings`, `SpiAudioEngine`, `QueuePlaybackStateHolder`,
@@ -197,10 +256,11 @@ persistence. Each is its own small commit.
 
 ## Known risks
 
-- Everything above Stage 0 rests on code that has only been compiled, never
-  executed; expect Stage 0/1 to find real bugs.
-- `TagReader` was compile-checked against jaudiotagger built from a GitHub fork
-  (Maven was unreachable), not the `net.jthink:3.0.1` artifact the build uses;
-  small API differences could show up as compile errors on the first CI run.
-- Real playback needs an audio device; the sandbox had none, so Stage 2's
-  device checks must be done on a desktop.
+- The playback *core* is now well tested, but the audio *output* layer is
+  not (see Stage 2); a real-device pass is still required.
+- Tests were compiled and run locally against jaudiotagger built from a
+  GitHub fork and a JUnit-compatible shim, not `net.jthink:3.0.1` and real
+  JUnit; the next CI run is the real check and may surface small API or
+  overload differences.
+- Real playback needs an audio device; neither the sandbox nor CI has one, so
+  Stage 2's device checks must be done on a desktop.

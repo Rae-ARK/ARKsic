@@ -86,20 +86,31 @@ class LibraryGraphTest {
         assertEquals(1, l.songs().iterator().next().artists().size());
     }
 
+    private static Song songNamed(Library l, String name) {
+        return l.songs().stream().filter(s -> s.name().raw().equals(name)).findFirst().orElseThrow();
+    }
+
+    private static List<String> artistNames(List<Artist> artists) {
+        return artists.stream().map(a -> ((Name.Known) a.name()).raw()).toList();
+    }
+
     @Test
     void albumArtistsTakePriorityForAlbumsButNotForSongs() {
         Library l = TestLibrary.of(
                 song().title("1").album("Comp").artists("Guest1").albumArtists("Host"),
                 song().title("2").album("Comp").artists("Guest2").albumArtists("Host"));
+        // The album belongs to its album artist...
         Album album = l.albums().iterator().next();
-        assertEquals(1, album.artists().size());
-        assertEquals("Host", ((Name.Known) album.artists().get(0).name()).raw());
-        Song s = l.findSong(l.songs().iterator().next().uid());
-        assertEquals("Guest1", ((Name.Known) s.artists().get(0).name()).raw().replace("Guest2", "Guest1"));
+        assertEquals(List.of("Host"), artistNames(album.artists()));
+        // ...but each song keeps its own performing artist.
+        assertEquals(List.of("Guest1"), artistNames(songNamed(l, "1").artists()));
+        assertEquals(List.of("Guest2"), artistNames(songNamed(l, "2").artists()));
         // Host has the album explicitly; guests reach it implicitly.
         assertEquals(1, artist(l, "Host").explicitAlbums().size());
-        assertEquals(1, artist(l, "Guest1").implicitAlbums().size());
+        assertEquals(0, artist(l, "Host").implicitAlbums().size());
         assertEquals(0, artist(l, "Guest1").explicitAlbums().size());
+        assertEquals(1, artist(l, "Guest1").implicitAlbums().size());
+        assertEquals(1, artist(l, "Guest2").implicitAlbums().size());
     }
 
     @Test

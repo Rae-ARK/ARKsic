@@ -23,6 +23,7 @@ public final class TestLibrary {
         String file;
 
         public Spec title(String t) { b.name = t; return this; }
+        public String title() { return b.name; }
         public Spec album(String a) { b.albumName = a; return this; }
         public Spec artists(String... a) { b.artistNames = List.of(a); return this; }
         public Spec albumArtists(String... a) { b.albumArtistNames = List.of(a); return this; }

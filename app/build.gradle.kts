@@ -44,4 +44,11 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+
+    // Gradle prints nothing for passing tests by default, which makes a green build look the same
+    // whether 5 or 500 tests ran. Log each result so CI output shows what actually executed.
+    testLogging {
+        events("passed", "skipped", "failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }
