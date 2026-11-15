@@ -19,11 +19,12 @@ iterated on later.
 |---|---|
 | Logic port (`arksic.musikr`, `arksic.list`, `arksic.playback`, `arksic.audio`) | Written and committed (`7042730`). Main sources compile with `javac -Xlint:all`. |
 | JUnit 5 tests (~60) | Written. **Never run; never compiled against real JUnit.** |
-| `build.gradle.kts` | **Not updated** (needs `net.jthink:jaudiotagger`). |
+| `app/build.gradle.kts` | No change needed: `net.jthink:jaudiotagger:3.0.1` was already a dependency (an earlier note here said otherwise; that was wrong). |
+| CI | `.github/workflows/ci.yml` runs `gradle build` (compile + JUnit) on push/PR. First run is the first time the tests execute anywhere. |
 | Wiring into `App`/`Main` | **Not started.** Old `model`/`service`/`view` code still in place and untouched. |
 | Swing UI | **Not started.** |
-| Real audio playback, seek, ReplayGain | **Unverified** (no audio device in the dev sandbox). |
-| `gradle build` | **Unverified** (Gradle and Maven Central unreachable from the sandbox). |
+| Real audio playback, seek, ReplayGain | **Unverified** (no audio device in the dev sandbox; CI has none either, so this stays a manual desktop check). |
+| `gradle build` | **Unverified** locally (Gradle and Maven Central unreachable from the sandbox); CI is the first real run. |
 
 ## Interpretation of "the Android 12L part of the Compose"
 
@@ -73,8 +74,12 @@ Don't start a stage before the previous one's criteria hold.
 
 ### Stage 0 — Make what exists trustworthy
 
-- [ ] Add `net.jthink:jaudiotagger` to `app/build.gradle.kts` (check it against
-      `MetadataService`'s existing dependency; keep the small-footprint rule).
+- [x] jaudiotagger is already declared in `app/build.gradle.kts`; nothing to add.
+- [ ] Get the first green CI run (`.github/workflows/ci.yml`). Until then the
+      tests have never executed. Fix whatever it reports.
+- [ ] Add a Gradle wrapper (`gradle wrapper`, commit `gradlew`, `gradlew.bat`,
+      `gradle/wrapper/`). The README references `./gradlew`, but it isn't in the
+      repo; CI currently installs Gradle itself to work around that.
 - [ ] Run the existing test suite on a machine with Gradle; fix compile and
       assertion failures. Known soft spot:
       `LibraryGraphTest.albumArtistsTakePriorityForAlbumsButNotForSongs` has a
@@ -194,7 +199,8 @@ persistence. Each is its own small commit.
 
 - Everything above Stage 0 rests on code that has only been compiled, never
   executed; expect Stage 0/1 to find real bugs.
-- jaudiotagger differences between the fork used for compile-checking and the
-  `net.jthink` release could surface as compile errors in `TagReader`.
+- `TagReader` was compile-checked against jaudiotagger built from a GitHub fork
+  (Maven was unreachable), not the `net.jthink:3.0.1` artifact the build uses;
+  small API differences could show up as compile errors on the first CI run.
 - Real playback needs an audio device; the sandbox had none, so Stage 2's
   device checks must be done on a desktop.
