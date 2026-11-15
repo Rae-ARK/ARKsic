@@ -12,6 +12,7 @@ for how a feature arrives here in the first place.
 | Doc | Feature | Status |
 |---|---|---|
 | [`initial-scaffold.md`](initial-scaffold.md) | Gradle module + layer skeleton (services, controllers, views, decoder) | In progress — code compiles offline; full `gradle build`, real audio playback, and final icon set still unverified |
+| [`auxio-port.md`](auxio-port.md) | Port Auxio's library/playback logic to Java, then a large-screen Swing UI on top | In progress — logic written and committed, tests unrun, nothing wired; staged plan inside |
 
 ## Planned modules
 
